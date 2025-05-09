@@ -2,6 +2,7 @@ import streamlit as st
 from docx import Document
 import PyPDF2
 import io # To handle byte streams for file processing
+import base64  # Add this import at the top of the file
 
 # Import the core AutoGen logic
 from resume import initialize_agents, analyze_resume_with_autogen
@@ -85,18 +86,18 @@ with st.sidebar:
                 
                 if text_content:
                     st.session_state.uploaded_files_data.append({
-                        "id": i, # Simple ID for keys
+                        "id": i,
                         "name": uploaded_file.name,
                         "text": text_content,
                         "status": "Pending Analysis",
-                        "full_report": None
+                        "full_report": None,
+                        "file_type": uploaded_file.type,
+                        "file_bytes": file_bytes  # Store the raw file bytes
                     })
             st.success(f"{len(st.session_state.uploaded_files_data)} resumes processed and ready for analysis.")
         else:
             st.warning("Please upload resume files first.")
 
-# --- Main Area for Displaying Resumes and Analysis ---
-st.header("Resumes for Analysis")
 
 if not st.session_state.uploaded_files_data:
     st.info("Upload resumes and click 'Process Uploaded Files' in the sidebar to begin.")
@@ -109,14 +110,21 @@ else:
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                with st.expander("View Resume Content (first 500 chars)"):
-                    st.text(resume_data['text'][:500] + "...")
+                with st.expander("View Resume Content"):
+                    if resume_data['file_type'] == "application/pdf":
+                        # Display PDF using base64 encoding
+                        base64_pdf = base64.b64encode(resume_data['file_bytes']).decode('utf-8')
+                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                        st.markdown(pdf_display, unsafe_allow_html=True)
+                    else:
+                        # For DOCX files, show text content
+                        st.text(resume_data['text'][:500] + "...")
                 
                 # Display status and full report if available
                 status_color = "blue"
-                if "Hirable" in resume_data['status']:
+                if "Hireable" in resume_data['status']:
                     status_color = "green"
-                elif "Not Hirable" in resume_data['status']:
+                elif "Not Hireable" in resume_data['status']:
                     status_color = "red"
                 elif "Consider" in resume_data['status']:
                     status_color = "orange"
